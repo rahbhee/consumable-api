@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Generated identifiers throughout -- never a sequential integer. A
+// sequential id lets anyone enumerate the entire table by counting
+// (GET /products/1, /products/2, ...); a uuid does not.
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id               String   @id @default(uuid())
+  categoryId       String
+  category         Category @relation(fields: [categoryId], references: [id])
+  name             String
+  description      String
+  // Money as a whole number of minor units (cents) plus a currency column
+  // beside it -- never a decimal. See README "Design decisions."
+  priceMinorUnits  Int
+  currency         String   @default("USD")
+  stockQuantity    Int
+  imageUrl         String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  orderItems       OrderItem[]
+
+  // Serves both the category-scoped listing (?category=...) and price
+  // sorting/filtering (?sort=price, ?minPrice=...) without a separate
+  // index for each -- the compound index covers filtering by category
+  // AND sorting/range-filtering by price in one pass.
+  @@index([categoryId, priceMinorUnits])
+  @@map("products")
+}
+
+enum OrderStatus {
+  pending
+  paid
+  shipped
+  cancelled
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  customerName     String
+  customerEmail    String
+  status           OrderStatus @default(pending)
+  totalMinorUnits  Int
+  currency         String      @default("USD")
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  items            OrderItem[]
+
+  // Matches the list endpoint's default sort (newest first) and its
+  // status filter (?status=paid) in one compound index.
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+// A snapshot of price at order time -- unitPriceMinorUnits is deliberately
+// NOT looked up from Product at read time, because a product's price can
+// change after an order is placed, and the order must keep showing what
+// was actually charged, not today's price.
+model OrderItem {
+  id                   String  @id @default(uuid())
+  orderId              String
+  order                Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId            String
+  product              Product @relation(fields: [productId], references: [id])
+  quantity             Int
+  unitPriceMinorUnits  Int
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model RateLimitHit {
+  id          String   @id @default(uuid())
+  identifier  String
+  route       String
+  windowStart DateTime
+  count       Int      @default(1)
+
+  @@unique([identifier, route, windowStart])
+  @@index([identifier, route])
+  @@map("rate_limit_hits")
+}
