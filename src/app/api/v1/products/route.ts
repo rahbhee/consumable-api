@@ -34,18 +34,21 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  const sortField = sort === "price" ? "priceMinorUnits" : sort;
+
   let where: Prisma.ProductWhereInput = filters;
   if (cursor) {
     const decoded = decodeCursor(cursor);
     if (!decoded) return errorResponse("BAD_REQUEST", "Invalid cursor", 400);
-    where = { AND: [filters, buildCursorWhere(sort, order, decoded) as Prisma.ProductWhereInput] };
+    where = { AND: [filters, buildCursorWhere(sortField, order, decoded) as Prisma.ProductWhereInput] };
   }
 
   const [total, rows] = await Promise.all([
     db.product.count({ where: filters }),
     db.product.findMany({
       where,
-      orderBy: [{ [sort]: order }, { id: order }],
+      include: { category: true },
+      orderBy: [{ [sortField]: order }, { id: order }],
       take: limit + 1,
     }),
   ]);
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit);
   const last = page[page.length - 1];
-  const nextCursor = hasMore && last ? encodeCursor((last as unknown as Record<string, string>)[sort], last.id) : null;
+  const nextCursor = hasMore && last ? encodeCursor((last as unknown as Record<string, string>)[sortField], last.id) : null;
 
   return dataResponse(page, { total, limit, hasMore, nextCursor });
 }

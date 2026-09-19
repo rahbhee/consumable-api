@@ -15,7 +15,7 @@ type Product = {
   priceMinorUnits: number;
   currency: string;
   stockQuantity: number;
-  category: { name: string; slug: string };
+  category?: { name: string; slug: string };
 };
 
 type ApiResponse = {
@@ -111,7 +111,7 @@ export default function ConsumerPage() {
                 </p>
               </div>
               <p className="mt-1 text-xs text-stone-400">
-                {p.category.name} • {p.stockQuantity} in stock
+                {p.category?.name ?? "General"} • {p.stockQuantity} in stock
               </p>
             </li>
           ))}

@@ -18,13 +18,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!parsed.success) {
     return errorResponse("BAD_REQUEST", parsed.error.issues[0]?.message ?? "Invalid query", 400);
   }
-  const { limit, sort, order } = parsed.data;
+  const sortField = sort === "price" ? "priceMinorUnits" : sort;
 
   const [total, products] = await Promise.all([
     db.product.count({ where: { categoryId: id } }),
     db.product.findMany({
       where: { categoryId: id },
-      orderBy: [{ [sort]: order }, { id: order }],
+      include: { category: true },
+      orderBy: [{ [sortField]: order }, { id: order }],
       take: limit,
     }),
   ]);
